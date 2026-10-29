@@ -1,10 +1,13 @@
 import pandas as pd
+import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.pipeline import Pipeline
+
+from text_utils import preprocess  # shared with app.py so the saved model can be loaded
 
 # 1. Load dataset
 df = pd.read_csv(
@@ -12,7 +15,7 @@ df = pd.read_csv(
     sep="\t",
     header=None,
     names=["label", "message"],
-    encoding="utf-8"
+    encoding="utf-8",
 )
 
 # 2. Remove any missing messages
@@ -24,37 +27,33 @@ y = df["label"]
 
 # 4. Split data into training and testing sets
 X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=42,
-    stratify=y
+    X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-# 5. Create the NLP pipeline
+# 5. NLP pipeline: TF-IDF (unigrams + bigrams) + class-balanced Logistic Regression
 model = Pipeline([
-    ("tfidf", TfidfVectorizer()),
-    ("classifier", MultinomialNB())
+    ("tfidf", TfidfVectorizer(
+        preprocessor=preprocess,
+        ngram_range=(1, 2),
+        sublinear_tf=True,
+    )),
+    ("classifier", LogisticRegression(
+        C=10,
+        class_weight="balanced",
+        max_iter=2000,
+    )),
 ])
 
-# 6. Train the model
+# 6. Train
 print("Training model...")
-
 model.fit(X_train, y_train)
 
-# 7. Make predictions
+# 7. Evaluate
 y_pred = model.predict(X_test)
-
-# 8. Evaluate model
-accuracy = accuracy_score(y_test, y_pred)
-
-print(f"\nAccuracy: {accuracy * 100:.2f}%")
+print(f"\nAccuracy: {accuracy_score(y_test, y_pred) * 100:.2f}%")
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred))
 
-# 9. Save trained model
-import joblib
-
+# 8. Save
 joblib.dump(model, "spam_model.pkl")
-
 print("\nModel saved successfully as spam_model.pkl!")

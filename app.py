@@ -1,5 +1,6 @@
 import streamlit as st
 import joblib
+import text_utils  # noqa: F401  (needed to load the saved model)
 
 # Load trained model
 model = joblib.load("spam_model.pkl")
